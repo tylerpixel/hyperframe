@@ -34,7 +34,8 @@ body {
   letter-spacing: -0.4px;
   line-height: 1.5;
   color: #333;
-  background-color: #f4f4f4;
+  background-color: #f3f3f3;
+  animation: fadeIn 1s forwards, blurIn 1s forwards;
 }
 
 /* Style for headings */
@@ -114,10 +115,13 @@ button:hover {
 
 .boilerplate {
   border: 1px solid;
+  background-color: white;
+  z-index: 5;
   font-weight: 600;
   font-size: 18px;
   width: fit-content;
   padding: 24px 28px;
+  border-radius: 3px;
 }
 
 .description {
@@ -142,6 +146,18 @@ button:hover {
   padding-right: var(--padding);
   width: fit-content;
   transition: 0.33s ease;
+  transform: translateY(-100%); /* Start above the boilerplate */
+}
+
+.follow.drop-down {
+  animation: dropDown 0.9s forwards;
+}
+
+@keyframes dropDown {
+  to {
+    opacity: 1;
+    transform: translateY(0); /* Drop down to its final position */
+  }
 }
 
 .follow:hover {
@@ -181,4 +197,46 @@ button:hover {
   justify-content: space-between;
   box-sizing: border-box;
   width: 100%;
+}
+
+/* Basic styling for a terminal look */
+.terminal {
+  white-space: nowrap;
+  height: 1.2em; /* Adjust this value based on your font size */
+}
+
+/* START - Blinking underscore cursor animation */
+.cursor {
+  display: inline;
+  animation: blink 0.7s infinite;
+}
+
+/* terminal animations */
+@keyframes blink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+/* END - Blinking underscore cursor animation */
+
+/* Fade-in and blur-in animations */
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes blurIn {
+  from {
+    filter: blur(10px);
+  }
+  to {
+    filter: blur(0);
+  }
 }
