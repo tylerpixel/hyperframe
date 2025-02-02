@@ -1,21 +1,20 @@
 /* Import local fonts */
 @font-face {
-  font-family: "Geist";
-  src: url("./fonts/GeistMono-Regular.woff2") format("woff2"),
-    url("./fonts/GeistMono-Regular.woff") format("woff");
+  font-family: "Geist Mono";
+  src: url("/fonts/GeistMono-Regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
 }
 
 @font-face {
-  font-family: "Geist";
-  src: url("./fonts/GeistMono-Bold.woff2") format("woff2"),
-    url("./fonts/GeistMono-Bold.woff") format("woff");
+  font-family: "Geist Mono";
+  src: url("/fonts/GeistMono-Bold.woff2") format("woff2");
   font-weight: 800;
   font-style: normal;
 }
 
 :root {
+  --grid-size: 20px;
   --padding: 22px;
 }
 
@@ -29,7 +28,8 @@
 /* Set a base font size and family for the document */
 body {
   height: 100vh;
-  font-family: "Geist", sans-serif;
+  font-family: "Geist Mono", sans-serif;
+  font-family: 400;
   font-size: 16px;
   letter-spacing: -0.4px;
   line-height: 1.5;
@@ -43,7 +43,6 @@ h1 {
   text-align: center;
   font-size: 18px;
   letter-spacing: -0.5px;
-  font-family: "Geist", sans-serif;
   font-weight: 800;
 }
 
@@ -120,7 +119,7 @@ button:hover {
   font-weight: 600;
   font-size: 18px;
   width: fit-content;
-  padding: 24px 28px;
+  padding: var(--grid-size);
   border-radius: 3px;
 }
 
@@ -128,7 +127,6 @@ button:hover {
   margin-top: 12px;
   font-size: 12px;
   width: 44ch;
-  font-family: "Geist", sans-serif;
   font-weight: 400;
 }
 
@@ -145,6 +143,7 @@ button:hover {
   padding-left: var(--padding);
   padding-right: var(--padding);
   width: fit-content;
+  text-decoration: none;
   transition: 0.33s ease;
   transform: translateY(-100%); /* Start above the boilerplate */
 }
@@ -163,25 +162,49 @@ button:hover {
 .follow:hover {
   padding-left: calc(var(--padding) + 5px);
   padding-right: calc(var(--padding) + 5px);
-  transition: 0.33s ease;
-}
-
-.follow a {
+  padding-bottom: calc(10px + 5px);
   color: white;
-  text-decoration: none;
+  transition: 0.33s ease;
 }
 
 .full-viewport {
   display: flex;
   flex-direction: column;
-  padding: 14px;
+  padding: var(--grid-size);
   min-height: 100vh;
   max-width: 100%;
+  position: relative;
+  background: linear-gradient(
+      90deg,
+      rgba(200, 200, 200, 0.2) 1px,
+      transparent 1px
+    ),
+    linear-gradient(rgba(200, 200, 200, 0.2) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
+  overflow: hidden;
+}
+
+.pixel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  background-color: rgb(30, 0, 255);
+  opacity: 1;
+}
+
+@keyframes movePixel {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(100vw, 100vh);
+  }
 }
 
 .logo {
   width: 100px;
   color: black;
+  margin-bottom: var(--grid-size);
 }
 
 .content {
