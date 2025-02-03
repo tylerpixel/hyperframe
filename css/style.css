@@ -13,6 +13,11 @@
   font-style: normal;
 }
 
+::selection {
+  background-color: #FFBD35;
+  color: #333;
+}
+
 :root {
   --grid-size: 20px;
   --padding: 22px;
