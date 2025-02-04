@@ -268,3 +268,50 @@ button:hover {
     filter: blur(0);
   }
 }
+
+/* Video styles */
+#remoteVideo {
+  width: 100%;
+  max-width: 800px;
+  border-radius: 3px;
+  margin-top: 20px;
+}
+
+/* Input styles */
+#mnemonicInput {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #333;
+  border-radius: 3px;
+  font-family: "Geist Mono", monospace;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+/* Button styles */
+#shareButton {
+  background-color: black;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 3px;
+  font-family: "Geist Mono", monospace;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.33s ease;
+  margin-top: 10px;
+}
+
+#shareButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Error message styles */
+.error {
+  color: #ff3333;
+  margin-top: 10px;
+  font-family: "Geist Mono", monospace;
+  font-size: 14px;
+  text-align: center;
+}

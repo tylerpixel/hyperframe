@@ -1,0 +1,21 @@
+{
+  "name": "hyperframe",
+  "version": "1.0.0",
+  "description": "Secure screen sharing with mnemonic-based connection",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4",
+    "redis": "^4.6.13",
+    "bip39": "^3.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+} 
