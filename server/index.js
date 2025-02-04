@@ -1,7 +1,7 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const Redis = require('redis');
+const { Redis } = require('@upstash/redis');
 const bip39 = require('bip39');
 const cors = require('cors');
 require('dotenv').config();
@@ -15,12 +15,11 @@ const io = socketIo(server, {
   }
 });
 
-// Redis client setup
-const redis = Redis.createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
+// Upstash Redis client setup
+const redis = new Redis({
+  url: `https://${process.env.REDIS_URL}`,
+  token: process.env.REDIS_TOKEN
 });
-
-redis.connect().catch(console.error);
 
 // Middleware
 app.use(cors());
@@ -41,34 +40,44 @@ function generateSessionMnemonic() {
 
 // Route to create new session
 app.post('/api/session', async (req, res) => {
-  const subdomain = generateSubdomainMnemonic();
-  const sessionMnemonic = generateSessionMnemonic();
-  
-  // Store session info in Redis with 24hr expiry
-  await redis.set(`session:${subdomain}`, JSON.stringify({
-    mnemonic: sessionMnemonic,
-    created: Date.now(),
-    connected: false
-  }), 'EX', 86400);
-  
-  res.json({ subdomain, sessionMnemonic });
+  try {
+    const subdomain = generateSubdomainMnemonic();
+    const sessionMnemonic = generateSessionMnemonic();
+    
+    // Store session info in Redis with 24hr expiry
+    await redis.set(`session:${subdomain}`, JSON.stringify({
+      mnemonic: sessionMnemonic,
+      created: Date.now(),
+      connected: false
+    }), { ex: 86400 }); // Upstash uses options object for expiry
+    
+    res.json({ subdomain, sessionMnemonic });
+  } catch (error) {
+    console.error('Session creation error:', error);
+    res.status(500).json({ error: 'Failed to create session' });
+  }
 });
 
 // Route to validate and join session
 app.post('/api/session/join', async (req, res) => {
-  const { subdomain, mnemonic } = req.body;
-  
-  const sessionData = await redis.get(`session:${subdomain}`);
-  if (!sessionData) {
-    return res.status(404).json({ error: 'Session not found' });
+  try {
+    const { subdomain, mnemonic } = req.body;
+    
+    const sessionData = await redis.get(`session:${subdomain}`);
+    if (!sessionData) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    
+    const session = JSON.parse(sessionData);
+    if (session.mnemonic !== mnemonic) {
+      return res.status(401).json({ error: 'Invalid mnemonic' });
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Session join error:', error);
+    res.status(500).json({ error: 'Failed to join session' });
   }
-  
-  const session = JSON.parse(sessionData);
-  if (session.mnemonic !== mnemonic) {
-    return res.status(401).json({ error: 'Invalid mnemonic' });
-  }
-  
-  res.json({ success: true });
 });
 
 // WebRTC signaling
