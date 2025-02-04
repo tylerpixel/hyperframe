@@ -1,5 +1,6 @@
 {
   "name": "hyperframe",
+<<<<<<< HEAD
   "version": "1.0.0",
 <<<<<<< HEAD
   "description": "Secure screen sharing with mnemonic-based connection",
@@ -21,8 +22,12 @@
   }
 } 
 =======
+=======
+  "version": "0.2.1",
+>>>>>>> cd939f0 (Hyperframe v0.2.1 Alpha)
   "description": "Hyperframe is a simple, lightweight, and secure screen sharing service designed to be as intuitive as possible.",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -31,8 +36,11 @@
   "license": "ISC",
   "dependencies": {
     "@upstash/redis": "^1.34.3",
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "redis": "^4.7.0"
+    "redis": "^4.7.0",
+    "uuid": "^11.0.5",
+    "ws": "^8.18.0"
   }
 }
 >>>>>>> f006916 (Hyperframe v0.2 Alpha)
