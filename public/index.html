@@ -3,29 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hyperframe</title>
+  <title>Hyperframe. Accountless Screenshare.</title>
+  <meta name="description" content="Peer-to-peer screen sharing. No downloads, no accounts.">
+  <meta property="og:title" content="Hyperframe. Accountless Screenshare.">
+  <meta property="og:description" content="Peer-to-peer screen sharing. No downloads, no accounts.">
+  <meta property="og:image" content="https://hyperframe.computer/images/graph.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hyperframe.computer">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Hyperframe. Accountless Screenshare.">
+  <meta name="twitter:description" content="Peer-to-peer screen sharing. No downloads, no accounts.">
+  <meta name="twitter:image" content="https://hyperframe.computer/images/graph.png">
+  <link rel="icon" type="image/png" href="/images/favicon.png">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <div class="container">
-    <div class="logo">hyperframe.computer</div>
+    <div class="logo"><img src="/images/logo.svg" alt="Hyperframe"></div>
 
-    <div class="room-code" id="roomCode">---</div>
-    <div class="room-url" id="roomUrl"></div>
+    <div class="hyperframe-code-pill" id="hyperframeCodePill" title="Click to copy">
+      <span class="copy-hint" id="copyHint"></span>
+      <span class="hyperframe-code" id="hyperframeCode">---</span>
+    </div>
+    <div class="hidden" id="hyperframeUrl"></div>
 
-    <button class="btn" id="shareBtn">Share Screen</button>
-    <button class="btn btn-stop hidden" id="stopBtn">Stop Sharing</button>
-
-    <div class="status" id="status"></div>
-
-    <div class="instructions">
-      <h3>How it works</h3>
-      <ol>
-        <li>Share the code above with your viewer</li>
-        <li>Click "Share Screen" and select what to share</li>
-        <li>Viewer visits <code>[code].hyperframe.computer</code></li>
-        <li>Direct peer-to-peer connection - no server in between</li>
-      </ol>
+    <div class="actions">
+      <button class="btn" id="shareBtn">Share Screen</button>
+      <button class="btn btn-stop hidden" id="stopBtn">Stop Sharing</button>
+      <div class="status" id="status"></div>
     </div>
   </div>
 

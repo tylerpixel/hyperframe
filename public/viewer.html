@@ -3,22 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hyperframe - Viewing</title>
+  <title>Hyperframe. Accountless Screenshare.</title>
+  <meta name="description" content="Peer-to-peer screen sharing. No downloads, no accounts.">
+  <meta property="og:title" content="Hyperframe. Accountless Screenshare.">
+  <meta property="og:description" content="Peer-to-peer screen sharing. No downloads, no accounts.">
+  <meta property="og:image" content="https://hyperframe.computer/images/graph.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hyperframe.computer">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Hyperframe. Accountless Screenshare.">
+  <meta name="twitter:description" content="Peer-to-peer screen sharing. No downloads, no accounts.">
+  <meta name="twitter:image" content="https://hyperframe.computer/images/graph.png">
+  <link rel="icon" type="image/png" href="/images/favicon.png">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <div class="viewer-container" id="viewerContainer">
-    <video id="remoteVideo" autoplay playsinline muted></video>
+    <video id="remoteVideo" autoplay playsinline muted controls></video>
 
     <div class="viewer-overlay" id="overlay">
-      <div class="room-code" id="roomCode"></div>
-      <div class="waiting" id="waiting">
-        <div class="spinner"></div>
-        <span>Waiting for sharer...</span>
-      </div>
-      <div class="error-message hidden" id="error">
-        <h2>Disconnected</h2>
-        <p>The sharer has stopped sharing</p>
+      <div class="overlay-content">
+        <div class="logo"><img src="/images/logo.svg" alt="Hyperframe"></div>
+        <div class="hyperframe-code" id="hyperframeCode"></div>
+        <div class="waiting" id="waiting">
+          <span>Waiting for Sharer</span>
+        </div>
+        <div class="error-message hidden" id="error">
+          <h2>Disconnected</h2>
+          <p>The sharer has stopped sharing</p>
+        </div>
       </div>
     </div>
 

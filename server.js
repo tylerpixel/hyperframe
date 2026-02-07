@@ -27,20 +27,19 @@ const PORT = process.env.PORT || 3000;
 // Room storage: { roomCode: { sharer: ws, viewer: ws } }
 const rooms = new Map();
 
-// Serve static files
-app.use(express.static(path.join(__dirname, 'public')));
-
 // Subdomain detection middleware
 app.use((req, res, next) => {
   const host = req.headers.host || '';
   const parts = host.split('.');
+  console.log('[DEBUG] Middleware - Host:', host, '| Parts:', parts.length, '| Parts array:', JSON.stringify(parts));
 
   // Check for subdomain (e.g., machine-cash.hyperframe.computer or machine-cash.localhost:3000)
   // For localhost testing, handle: machine-cash.localhost:3000
-  if (parts.length >= 2) {
+  if (parts.length >= 3) {
     const subdomain = parts[0];
     // Check if it's a valid room code (word-word format)
     if (subdomain.includes('-') && isValidCode(subdomain)) {
+      console.log('[DEBUG] Valid room code detected:', subdomain);
       req.roomCode = subdomain;
     }
   }
@@ -59,9 +58,12 @@ app.get('/view/:code', (req, res) => {
 
 // Route: Viewer page (when accessing via subdomain)
 app.get('/', (req, res) => {
+  console.log('[DEBUG] GET / - req.roomCode:', req.roomCode);
   if (req.roomCode) {
+    console.log('[DEBUG] Serving viewer.html for room:', req.roomCode);
     res.sendFile(path.join(__dirname, 'public', 'viewer.html'));
   } else {
+    console.log('[DEBUG] Serving index.html (sharer page)');
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
   }
 });
@@ -83,6 +85,9 @@ app.get('/api/new-room', (req, res) => {
 
   res.json({ code, lanIP: getLocalIP(), port: PORT });
 });
+
+// Serve static files
+app.use(express.static(path.join(__dirname, 'public')));
 
 // WebSocket signaling
 wss.on('connection', (ws, req) => {

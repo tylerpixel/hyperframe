@@ -1,29 +1,49 @@
 // Sharer-side WebRTC and screen capture logic
 
-const roomCodeEl = document.getElementById('roomCode');
-const roomUrlEl = document.getElementById('roomUrl');
+const hyperframeCodeEl = document.getElementById('hyperframeCode');
+const hyperframeUrlEl = document.getElementById('hyperframeUrl');
 const shareBtn = document.getElementById('shareBtn');
 const stopBtn = document.getElementById('stopBtn');
 const statusEl = document.getElementById('status');
 
-let roomCode = null;
+let hyperframeCode = null;
 let ws = null;
 let peerConnection = null;
 let localStream = null;
 let viewerPresent = false;
+let shareUrl = '';
 
 // ICE servers for NAT traversal
 const iceServers = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' }
-  ]
+    { urls: 'stun:stun2.l.google.com:19302' },
+    // TURN servers for relay when direct P2P fails
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ],
+  iceCandidatePoolSize: 10
 };
 
-// Initialize: Get a room code
+// Initialize: Get a hyperframe code
 async function init() {
+  console.log('Sharer page initializing...');
   try {
+    console.log('Fetching hyperframe code...');
     const res = await fetch('/api/new-room');
 
     if (!res.ok) {
@@ -33,12 +53,12 @@ async function init() {
     const data = await res.json();
 
     if (!data.code) {
-      throw new Error(data.error || 'No room code received');
+      throw new Error(data.error || 'No hyperframe code received');
     }
 
-    roomCode = data.code;
+    hyperframeCode = data.code;
 
-    roomCodeEl.textContent = roomCode;
+    hyperframeCodeEl.textContent = hyperframeCode;
 
     // Build viewer URL
     const host = window.location.host;
@@ -52,21 +72,22 @@ async function init() {
 
     if (isIP) {
       // Already on LAN IP: use path-based URL
-      viewerUrl = `${protocol}//${host}/view/${roomCode}`;
+      viewerUrl = `${protocol}//${host}/view/${hyperframeCode}`;
     } else if (isLocalhost) {
       // On localhost: use server-provided LAN IP for viewer
-      viewerUrl = `http://${data.lanIP}:${data.port}/view/${roomCode}`;
+      viewerUrl = `http://${data.lanIP}:${data.port}/view/${hyperframeCode}`;
     } else {
       // Production: use subdomain
       const baseDomain = host.split('.').slice(-2).join('.');
-      viewerUrl = `${protocol}//${roomCode}.${baseDomain}`;
+      viewerUrl = `${protocol}//${hyperframeCode}.${baseDomain}`;
     }
 
-    roomUrlEl.innerHTML = `Viewer URL: <a href="${viewerUrl}" target="_blank">${viewerUrl}</a>`;
+    shareUrl = viewerUrl;
+    hyperframeUrlEl.innerHTML = `Viewer URL: <a href="${viewerUrl}" target="_blank">${viewerUrl}</a>`;
 
     connectWebSocket();
   } catch (err) {
-    setStatus('Failed to get room code', 'error');
+    setStatus('Failed to get hyperframe code', 'error');
     console.error(err);
   }
 }
@@ -74,18 +95,21 @@ async function init() {
 // Connect to signaling server
 function connectWebSocket() {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  console.log('Connecting WebSocket as sharer for hyperframe:', hyperframeCode);
   ws = new WebSocket(`${wsProtocol}//${window.location.host}`);
 
   ws.onopen = () => {
-    ws.send(JSON.stringify({ type: 'join', room: roomCode, role: 'sharer' }));
+    console.log('WebSocket connected, joining hyperframe as sharer');
+    ws.send(JSON.stringify({ type: 'join', room: hyperframeCode, role: 'sharer' }));
   };
 
   ws.onmessage = async (event) => {
     const message = JSON.parse(event.data);
+    console.log('WebSocket message received:', message.type, message);
 
     switch (message.type) {
       case 'joined':
-        setStatus('Room created. Waiting for viewer...');
+        setStatus('Waiting for viewer...');
         break;
 
       case 'viewer-joined':
@@ -133,12 +157,14 @@ function connectWebSocket() {
 
 // Start screen sharing
 async function startSharing() {
+  console.log('Share Screen button clicked');
   // Check if screen sharing is available (requires HTTPS or localhost)
   if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
     setStatus('Screen sharing requires HTTPS. Use localhost:3000 on this device.', 'error');
     return;
   }
 
+  console.log('Requesting screen share...');
   try {
     // Request screen with audio
     localStream = await navigator.mediaDevices.getDisplayMedia({
@@ -206,35 +232,63 @@ async function createOffer() {
 
   // Add tracks to connection
   localStream.getTracks().forEach(track => {
+    console.log('Adding track to peer connection:', track.kind, track.label);
     peerConnection.addTrack(track, localStream);
   });
 
   // Handle ICE candidates
   peerConnection.onicecandidate = (event) => {
-    if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'ice-candidate',
-        candidate: event.candidate
-      }));
+    if (event.candidate) {
+      console.log('ICE candidate generated:', event.candidate.candidate);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'ice-candidate',
+          candidate: event.candidate.toJSON()
+        }));
+        console.log('Sent ICE candidate to viewer');
+      } else {
+        console.error('Cannot send ICE candidate - WebSocket not open');
+      }
+    } else {
+      console.log('ICE gathering complete');
     }
   };
 
-  // Connection state changes
-  peerConnection.onconnectionstatechange = () => {
-    switch (peerConnection.connectionState) {
-      case 'connected':
-        setStatus('Connected to viewer! Streaming...', 'connected');
-        // P2P established — signaling server no longer needed
+  // ICE connection state changes
+  peerConnection.oniceconnectionstatechange = () => {
+    console.log('ICE connection state:', peerConnection.iceConnectionState);
+
+    // Close WebSocket only after ICE connection is fully established
+    if (peerConnection.iceConnectionState === 'connected' && ws && ws.readyState === WebSocket.OPEN) {
+      console.log('ICE connected - safe to close WebSocket');
+      setTimeout(() => {
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.close();
           ws = null;
         }
+      }, 1000); // Wait 1 second to ensure stability
+    }
+  };
+
+  // ICE gathering state changes
+  peerConnection.onicegatheringstatechange = () => {
+    console.log('ICE gathering state:', peerConnection.iceGatheringState);
+  };
+
+  // Connection state changes
+  peerConnection.onconnectionstatechange = () => {
+    console.log('Peer connection state:', peerConnection.connectionState);
+    switch (peerConnection.connectionState) {
+      case 'connected':
+        setStatus('Connected to viewer! Streaming...', 'connected');
+        console.log('Peer connection established, streaming video');
         break;
       case 'disconnected':
         setStatus('Viewer disconnected');
         break;
       case 'failed':
         setStatus('Connection failed', 'error');
+        console.error('Peer connection failed');
         break;
     }
   };
@@ -263,10 +317,22 @@ async function handleAnswer(message) {
 
 // Handle ICE candidate from viewer
 async function handleIceCandidate(message) {
-  if (!peerConnection) return;
+  if (!peerConnection) {
+    console.error('Received ICE candidate but no peer connection exists');
+    return;
+  }
 
   try {
+    console.log('Received ICE candidate message:', message);
+    console.log('Candidate object:', message.candidate);
+
+    if (!message.candidate) {
+      console.error('No candidate in message!');
+      return;
+    }
+
     await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+    console.log('Successfully added ICE candidate from viewer');
   } catch (err) {
     console.error('Error adding ICE candidate:', err);
   }
@@ -296,6 +362,30 @@ function setStatus(text, type = '') {
 // Event listeners
 shareBtn.addEventListener('click', startSharing);
 stopBtn.addEventListener('click', stopSharing);
+
+// Platform-aware copy hint
+const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const copyHintEl = document.getElementById('copyHint');
+if (copyHintEl) copyHintEl.textContent = isMac ? '\u2318C' : 'Ctrl+C';
+
+// Copy viewer URL on pill click
+const hyperframeCodePill = document.getElementById('hyperframeCodePill');
+if (hyperframeCodePill) {
+  hyperframeCodePill.addEventListener('click', async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      if (copyHintEl) {
+        copyHintEl.textContent = 'Copied!';
+        setTimeout(() => {
+          copyHintEl.textContent = isMac ? '\u2318C' : 'Ctrl+C';
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('Copy failed:', err);
+    }
+  });
+}
 
 // Initialize on load
 init();

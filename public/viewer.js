@@ -3,12 +3,12 @@
 const viewerContainer = document.getElementById('viewerContainer');
 const remoteVideo = document.getElementById('remoteVideo');
 const overlay = document.getElementById('overlay');
-const roomCodeEl = document.getElementById('roomCode');
+const hyperframeCodeEl = document.getElementById('hyperframeCode');
 const waitingEl = document.getElementById('waiting');
 const errorEl = document.getElementById('error');
 const fullscreenBtn = document.getElementById('fullscreenBtn');
 
-let roomCode = null;
+let hyperframeCode = null;
 let ws = null;
 let peerConnection = null;
 
@@ -17,12 +17,30 @@ const iceServers = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' }
-  ]
+    { urls: 'stun:stun2.l.google.com:19302' },
+    // TURN servers for relay when direct P2P fails
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ],
+  iceCandidatePoolSize: 10,
+  iceTransportPolicy: 'all'
 };
 
-// Extract room code from subdomain or URL path
-function getRoomCode() {
+// Extract hyperframe code from subdomain or URL path
+function getHyperframeCode() {
   // Check URL path first (for LAN access: /view/word-word)
   const pathMatch = window.location.pathname.match(/^\/view\/([a-z]+-[a-z]+)$/);
   if (pathMatch) {
@@ -44,15 +62,15 @@ function getRoomCode() {
 
 // Initialize
 function init() {
-  roomCode = getRoomCode();
+  hyperframeCode = getHyperframeCode();
 
-  if (!roomCode) {
-    showError('Invalid room code');
+  if (!hyperframeCode) {
+    showError('Invalid hyperframe code');
     return;
   }
 
-  roomCodeEl.textContent = roomCode;
-  document.title = `Hyperframe - ${roomCode}`;
+  hyperframeCodeEl.textContent = hyperframeCode;
+  document.title = `Hyperframe - ${hyperframeCode}`;
 
   connectWebSocket();
 }
@@ -63,7 +81,7 @@ function connectWebSocket() {
   ws = new WebSocket(`${wsProtocol}//${window.location.host}`);
 
   ws.onopen = () => {
-    ws.send(JSON.stringify({ type: 'join', room: roomCode, role: 'viewer' }));
+    ws.send(JSON.stringify({ type: 'join', room: hyperframeCode, role: 'viewer' }));
   };
 
   ws.onmessage = async (event) => {
@@ -71,11 +89,12 @@ function connectWebSocket() {
 
     switch (message.type) {
       case 'joined':
-        // Successfully joined room
+        // Successfully joined hyperframe
         break;
 
       case 'sharer-joined':
-        waitingEl.querySelector('span').textContent = 'Sharer connected, waiting for stream...';
+        viewerContainer.classList.add('ready');
+        waitingEl.querySelector('span').textContent = 'Waiting for host';
         break;
 
       case 'sharer-left':
@@ -120,34 +139,80 @@ async function handleOffer(message) {
 
   // Handle incoming tracks
   peerConnection.ontrack = (event) => {
+    console.log('Track received:', event.track.kind, 'readyState:', event.track.readyState);
+    console.log('Stream:', event.streams[0].id, 'active:', event.streams[0].active);
+
     remoteVideo.srcObject = event.streams[0];
-    remoteVideo.play().catch(() => {});
-    hideOverlay();
+
+    // Log video element state
+    console.log('Video element - readyState:', remoteVideo.readyState, 'paused:', remoteVideo.paused);
+
+    // Try to play immediately
+    const playPromise = remoteVideo.play();
+
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          console.log('Video autoplay started successfully');
+          hideOverlay();
+        })
+        .catch((err) => {
+          console.log('Autoplay blocked, waiting for user interaction:', err.name, err.message);
+          // Video will play on click - keep overlay visible with instructions
+        });
+    }
   };
 
   // Handle ICE candidates
   peerConnection.onicecandidate = (event) => {
-    if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'ice-candidate',
-        candidate: event.candidate
-      }));
+    if (event.candidate) {
+      console.log('ICE candidate generated:', event.candidate.candidate);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'ice-candidate',
+          candidate: event.candidate.toJSON()
+        }));
+        console.log('Sent ICE candidate to sharer');
+      } else {
+        console.error('Cannot send ICE candidate - WebSocket not open');
+      }
+    } else {
+      console.log('ICE gathering complete');
     }
   };
 
-  // Connection state changes
-  peerConnection.onconnectionstatechange = () => {
-    switch (peerConnection.connectionState) {
-      case 'connected':
-        hideOverlay();
-        // P2P established — signaling server no longer needed
+  // ICE connection state changes
+  peerConnection.oniceconnectionstatechange = () => {
+    console.log('ICE connection state:', peerConnection.iceConnectionState);
+
+    // Close WebSocket only after ICE connection is fully established
+    if (peerConnection.iceConnectionState === 'connected' && ws && ws.readyState === WebSocket.OPEN) {
+      console.log('ICE connected - safe to close WebSocket');
+      setTimeout(() => {
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.close();
           ws = null;
         }
+      }, 1000); // Wait 1 second to ensure stability
+    }
+  };
+
+  // ICE gathering state changes
+  peerConnection.onicegatheringstatechange = () => {
+    console.log('ICE gathering state:', peerConnection.iceGatheringState);
+  };
+
+  // Connection state changes
+  peerConnection.onconnectionstatechange = () => {
+    console.log('Peer connection state:', peerConnection.connectionState);
+    switch (peerConnection.connectionState) {
+      case 'connected':
+        console.log('Peer connection established');
+        hideOverlay();
         break;
       case 'disconnected':
       case 'failed':
+        console.error('Peer connection failed or disconnected');
         showError('Connection lost');
         break;
     }
@@ -173,10 +238,15 @@ async function handleOffer(message) {
 
 // Handle ICE candidate from sharer
 async function handleIceCandidate(message) {
-  if (!peerConnection) return;
+  if (!peerConnection) {
+    console.error('Received ICE candidate but no peer connection exists');
+    return;
+  }
 
   try {
+    console.log('Received ICE candidate from sharer:', message.candidate.candidate);
     await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+    console.log('Successfully added ICE candidate');
   } catch (err) {
     console.error('Error adding ICE candidate:', err);
   }
@@ -212,8 +282,14 @@ fullscreenBtn.addEventListener('click', () => {
   }
 });
 
-// Click to unmute (browsers require user gesture for audio)
+// Click to play/unmute (browsers require user gesture for audio)
 remoteVideo.addEventListener('click', () => {
+  // Start playing if paused (in case autoplay was blocked)
+  if (remoteVideo.paused) {
+    remoteVideo.play();
+  }
+
+  // Unmute on click
   if (remoteVideo.muted) {
     remoteVideo.muted = false;
   }
@@ -226,6 +302,12 @@ remoteVideo.addEventListener('dblclick', () => {
   } else {
     viewerContainer.requestFullscreen();
   }
+});
+
+// Listen for video playing event to hide overlay
+remoteVideo.addEventListener('playing', () => {
+  console.log('Video is now playing');
+  hideOverlay();
 });
 
 // Initialize on load
