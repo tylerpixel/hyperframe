@@ -1,0 +1,277 @@
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #0F0C00;
+  --surface: #1A1400;
+  --border: #2E2500;
+  --text: #FFFDF5;
+  --text-muted: #9A8A5C;
+  --accent: #FFCC00;
+  --accent-hover: #FFD633;
+  --error: #EF4444;
+}
+
+body {
+  font-family: 'Geist', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Sharer Page */
+.container {
+  text-align: center;
+  padding: 2rem;
+  max-width: 600px;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 3rem;
+  color: var(--text-muted);
+  letter-spacing: -0.02em;
+}
+
+.room-code {
+  font-size: 4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 1rem;
+  font-family: 'Geist Mono', monospace;
+}
+
+.room-url {
+  font-size: 1rem;
+  color: var(--text-muted);
+  margin-bottom: 3rem;
+  word-break: break-all;
+}
+
+.room-url a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.room-url a:hover {
+  text-decoration: underline;
+}
+
+.btn {
+  background: var(--accent);
+  color: #0F0C00;
+  border: none;
+  padding: 0 1.5rem;
+  height: 40px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: 'Geist', sans-serif;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.btn:hover {
+  background: var(--accent-hover);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  background: var(--border);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.btn-stop {
+  background: var(--error);
+  color: var(--text);
+}
+
+.btn-stop:hover {
+  background: #dc2626;
+}
+
+.status {
+  margin-top: 2rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.status.connected {
+  color: var(--accent);
+}
+
+.status.error {
+  color: var(--error);
+}
+
+.instructions {
+  margin-top: 3rem;
+  padding: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.instructions h3 {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+.instructions ol {
+  padding-left: 1.5rem;
+  line-height: 1.8;
+  color: var(--text-muted);
+}
+
+.instructions li {
+  margin-bottom: 0.5rem;
+}
+
+.instructions code {
+  background: var(--bg);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Geist Mono', monospace;
+  color: var(--text);
+  font-size: 0.85em;
+}
+
+/* Viewer Page */
+.viewer-container {
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.viewer-container video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.viewer-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.viewer-overlay .room-code {
+  font-size: 2.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.waiting {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Fullscreen button */
+.fullscreen-btn {
+  position: absolute;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  background: rgba(255, 204, 0, 0.1);
+  border: none;
+  padding: 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.viewer-container:hover .fullscreen-btn {
+  opacity: 1;
+}
+
+.fullscreen-btn:hover {
+  background: rgba(255, 204, 0, 0.2);
+}
+
+.fullscreen-btn svg {
+  width: 24px;
+  height: 24px;
+  fill: var(--accent);
+}
+
+/* Error state */
+.error-message {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 1.5rem 2rem;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.error-message h2 {
+  color: var(--error);
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.error-message p {
+  color: var(--text-muted);
+}
