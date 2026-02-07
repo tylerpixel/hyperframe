@@ -99,12 +99,16 @@ function connectWebSocket() {
   };
 
   ws.onclose = () => {
-    showError('Disconnected from server');
+    if (!peerConnection || peerConnection.connectionState !== 'connected') {
+      showError('Disconnected from server');
+    }
   };
 
   ws.onerror = (err) => {
     console.error('WebSocket error:', err);
-    showError('Connection error');
+    if (!peerConnection || peerConnection.connectionState !== 'connected') {
+      showError('Connection error');
+    }
   };
 }
 
@@ -123,7 +127,7 @@ async function handleOffer(message) {
 
   // Handle ICE candidates
   peerConnection.onicecandidate = (event) => {
-    if (event.candidate) {
+    if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({
         type: 'ice-candidate',
         candidate: event.candidate
@@ -136,6 +140,11 @@ async function handleOffer(message) {
     switch (peerConnection.connectionState) {
       case 'connected':
         hideOverlay();
+        // P2P established — signaling server no longer needed
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.close();
+          ws = null;
+        }
         break;
       case 'disconnected':
       case 'failed':

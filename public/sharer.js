@@ -108,12 +108,16 @@ function connectWebSocket() {
   };
 
   ws.onclose = () => {
-    setStatus('Disconnected from server', 'error');
+    if (!peerConnection || peerConnection.connectionState !== 'connected') {
+      setStatus('Disconnected from server', 'error');
+    }
   };
 
   ws.onerror = (err) => {
     console.error('WebSocket error:', err);
-    setStatus('Connection error', 'error');
+    if (!peerConnection || peerConnection.connectionState !== 'connected') {
+      setStatus('Connection error', 'error');
+    }
   };
 }
 
@@ -197,7 +201,7 @@ async function createOffer() {
 
   // Handle ICE candidates
   peerConnection.onicecandidate = (event) => {
-    if (event.candidate) {
+    if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({
         type: 'ice-candidate',
         candidate: event.candidate
@@ -210,6 +214,11 @@ async function createOffer() {
     switch (peerConnection.connectionState) {
       case 'connected':
         setStatus('Connected to viewer! Streaming...', 'connected');
+        // P2P established — signaling server no longer needed
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.close();
+          ws = null;
+        }
         break;
       case 'disconnected':
         setStatus('Viewer disconnected');
