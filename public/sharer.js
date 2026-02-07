@@ -25,7 +25,17 @@ const iceServers = {
 async function init() {
   try {
     const res = await fetch('/api/new-room');
+
+    if (!res.ok) {
+      throw new Error(`Server error: ${res.status}`);
+    }
+
     const data = await res.json();
+
+    if (!data.code) {
+      throw new Error(data.error || 'No room code received');
+    }
+
     roomCode = data.code;
 
     roomCodeEl.textContent = roomCode;
