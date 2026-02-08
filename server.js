@@ -1,9 +1,11 @@
+require('dotenv').config();
 const express = require('express');
 const { createServer } = require('http');
 const { WebSocketServer } = require('ws');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const crypto = require('crypto');
 const { generateCode, isValidCode } = require('./words');
 const { generateOGImage } = require('./og');
 
@@ -25,56 +27,60 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
 const PORT = process.env.PORT || 3000;
-const TURN_KEY_ID = process.env.TURN_KEY_ID;
-const TURN_KEY_API_TOKEN = process.env.TURN_KEY_API_TOKEN;
+const TURN_SECRET = process.env.TURN_SECRET; // Shared secret from coturn config
+const TURN_HOST = process.env.TURN_HOST || '5.223.48.108'; // Your server IP
+const TURN_PORT = process.env.TURN_PORT || 3478;
 
 // Room storage: { roomCode: { sharer: ws, viewer: ws } }
 const rooms = new Map();
 
-// Cached Cloudflare TURN credentials
-let cachedIceServers = null;
-let cacheExpiry = 0;
+// Generate time-limited TURN credentials using coturn's shared secret method
+function getTurnCredentials(name) {
+  const unixTimeStamp = Math.floor(Date.now() / 1000) + 24 * 3600; // Valid for 24 hours
+  const username = [unixTimeStamp, name].join(':');
+  const hmac = crypto.createHmac('sha1', TURN_SECRET);
+  hmac.setEncoding('base64');
+  hmac.write(username);
+  hmac.end();
+  const password = hmac.read();
+  return {
+    username: username,
+    password: password
+  };
+}
 
-async function getIceServers() {
-  const now = Date.now();
-  if (cachedIceServers && now < cacheExpiry) {
-    return cachedIceServers;
+function getIceServers() {
+  // If no TURN secret is configured, fall back to STUN only
+  if (!TURN_SECRET) {
+    console.warn('TURN_SECRET not set, using STUN only');
+    return {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    };
   }
 
-  if (!TURN_KEY_ID || !TURN_KEY_API_TOKEN) {
-    console.warn('TURN_KEY_ID or TURN_KEY_API_TOKEN not set, using STUN only');
-    return { iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }] };
-  }
+  // Generate fresh credentials
+  const credentials = getTurnCredentials('hyperframe');
+  console.log('Generated TURN credentials for relay');
 
-  try {
-    const ttl = 86400;
-    const res = await fetch(
-      `https://rtc.live.cloudflare.com/v1/turn/keys/${TURN_KEY_ID}/credentials/generate-ice-servers`,
+  return {
+    iceServers: [
+      // Public STUN servers (always available, free)
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      // Self-hosted TURN server (for relay when STUN fails)
       {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${TURN_KEY_API_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ ttl })
+        urls: [
+          `turn:${TURN_HOST}:${TURN_PORT}`,
+          `turn:${TURN_HOST}:${TURN_PORT}?transport=tcp`
+        ],
+        username: credentials.username,
+        credential: credentials.password
       }
-    );
-
-    if (!res.ok) {
-      throw new Error(`Cloudflare TURN API returned ${res.status}`);
-    }
-
-    const data = await res.json();
-    cachedIceServers = data;
-    // Cache for 23 hours (credentials valid for 24)
-    cacheExpiry = now + (23 * 60 * 60 * 1000);
-    console.log('Fetched fresh Cloudflare TURN credentials');
-    return data;
-  } catch (err) {
-    console.error('Failed to fetch TURN credentials:', err.message);
-    // Fallback to STUN only
-    return { iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }] };
-  }
+    ]
+  };
 }
 
 // Read viewer.html once at startup as a template for dynamic OG tags
@@ -164,9 +170,9 @@ app.get('/api/new-room', (req, res) => {
 });
 
 // API: Get ICE servers with TURN credentials
-app.get('/api/ice-servers', async (req, res) => {
+app.get('/api/ice-servers', (req, res) => {
   try {
-    const iceConfig = await getIceServers();
+    const iceConfig = getIceServers();
     res.json(iceConfig);
   } catch (err) {
     console.error('ICE servers error:', err);
