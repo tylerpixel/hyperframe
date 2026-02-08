@@ -21,13 +21,13 @@
 </head>
 <body>
   <div class="viewer-container" id="viewerContainer">
-    <video id="remoteVideo" autoplay playsinline muted controls></video>
+    <video id="remoteVideo" autoplay playsinline muted></video>
 
     <div class="viewer-overlay" id="overlay">
       <div class="overlay-content">
-        <div class="logo"><img src="/images/logo.svg" alt="Hyperframe"></div>
-        <div class="hyperframe-code" id="hyperframeCode"></div>
-        <div class="waiting" id="waiting">
+        <div class="logo enter" style="--i:0"><img src="/images/logo.svg" alt="Hyperframe"></div>
+        <div class="hyperframe-code enter" style="--i:1" id="hyperframeCode"></div>
+        <div class="waiting enter" style="--i:2" id="waiting">
           <span>Waiting for Sharer</span>
         </div>
         <div class="error-message hidden" id="error">
@@ -37,13 +37,14 @@
       </div>
     </div>
 
-    <button class="fullscreen-btn" id="fullscreenBtn" title="Toggle fullscreen">
+    <button class="fullscreen-btn interactive" id="fullscreenBtn" title="Toggle fullscreen">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
       </svg>
     </button>
   </div>
 
+  <script>document.body.classList.add('loaded');</script>
   <script src="/viewer.js"></script>
 </body>
 </html>

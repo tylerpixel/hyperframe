@@ -99,8 +99,7 @@ function connectWebSocket() {
 
       case 'sharer-left':
       case 'sharing-stopped':
-        showError('Sharer has stopped sharing');
-        closePeerConnection();
+        resetToDefault();
         break;
 
       case 'offer':
@@ -118,16 +117,12 @@ function connectWebSocket() {
   };
 
   ws.onclose = () => {
-    if (!peerConnection || peerConnection.connectionState !== 'connected') {
-      showError('Disconnected from server');
-    }
+    showError('Disconnected from server');
   };
 
   ws.onerror = (err) => {
     console.error('WebSocket error:', err);
-    if (!peerConnection || peerConnection.connectionState !== 'connected') {
-      showError('Connection error');
-    }
+    showError('Connection error');
   };
 }
 
@@ -181,27 +176,6 @@ async function handleOffer(message) {
     }
   };
 
-  // ICE connection state changes
-  peerConnection.oniceconnectionstatechange = () => {
-    console.log('ICE connection state:', peerConnection.iceConnectionState);
-
-    // Close WebSocket only after ICE connection is fully established
-    if (peerConnection.iceConnectionState === 'connected' && ws && ws.readyState === WebSocket.OPEN) {
-      console.log('ICE connected - safe to close WebSocket');
-      setTimeout(() => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.close();
-          ws = null;
-        }
-      }, 1000); // Wait 1 second to ensure stability
-    }
-  };
-
-  // ICE gathering state changes
-  peerConnection.onicegatheringstatechange = () => {
-    console.log('ICE gathering state:', peerConnection.iceGatheringState);
-  };
-
   // Connection state changes
   peerConnection.onconnectionstatechange = () => {
     console.log('Peer connection state:', peerConnection.connectionState);
@@ -213,7 +187,7 @@ async function handleOffer(message) {
       case 'disconnected':
       case 'failed':
         console.error('Peer connection failed or disconnected');
-        showError('Connection lost');
+        resetToDefault();
         break;
     }
   };
@@ -264,6 +238,21 @@ function closePeerConnection() {
 // Hide overlay (show video)
 function hideOverlay() {
   overlay.classList.add('hidden');
+}
+
+// Reset to default waiting screen
+function resetToDefault() {
+  closePeerConnection();
+  overlay.classList.remove('hidden');
+  viewerContainer.classList.remove('ready');
+  waitingEl.classList.remove('hidden');
+  waitingEl.querySelector('span').textContent = 'Waiting for Sharer';
+  errorEl.classList.add('hidden');
+
+  // Reconnect WebSocket if closed
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    connectWebSocket();
+  }
 }
 
 // Show error

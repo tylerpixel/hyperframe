@@ -142,16 +142,12 @@ function connectWebSocket() {
   };
 
   ws.onclose = () => {
-    if (!peerConnection || peerConnection.connectionState !== 'connected') {
-      setStatus('Disconnected from server', 'error');
-    }
+    setStatus('Disconnected from server', 'error');
   };
 
   ws.onerror = (err) => {
     console.error('WebSocket error:', err);
-    if (!peerConnection || peerConnection.connectionState !== 'connected') {
-      setStatus('Connection error', 'error');
-    }
+    setStatus('Connection error', 'error');
   };
 }
 
@@ -254,27 +250,6 @@ async function createOffer() {
     }
   };
 
-  // ICE connection state changes
-  peerConnection.oniceconnectionstatechange = () => {
-    console.log('ICE connection state:', peerConnection.iceConnectionState);
-
-    // Close WebSocket only after ICE connection is fully established
-    if (peerConnection.iceConnectionState === 'connected' && ws && ws.readyState === WebSocket.OPEN) {
-      console.log('ICE connected - safe to close WebSocket');
-      setTimeout(() => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.close();
-          ws = null;
-        }
-      }, 1000); // Wait 1 second to ensure stability
-    }
-  };
-
-  // ICE gathering state changes
-  peerConnection.onicegatheringstatechange = () => {
-    console.log('ICE gathering state:', peerConnection.iceGatheringState);
-  };
-
   // Connection state changes
   peerConnection.onconnectionstatechange = () => {
     console.log('Peer connection state:', peerConnection.connectionState);
@@ -285,10 +260,12 @@ async function createOffer() {
         break;
       case 'disconnected':
         setStatus('Viewer disconnected');
+        closePeerConnection();
         break;
       case 'failed':
         setStatus('Connection failed', 'error');
         console.error('Peer connection failed');
+        closePeerConnection();
         break;
     }
   };

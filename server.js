@@ -86,6 +86,15 @@ app.get('/api/new-room', (req, res) => {
   res.json({ code, lanIP: getLocalIP(), port: PORT });
 });
 
+// No caching
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('Surrogate-Control', 'no-store');
+  next();
+});
+
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
