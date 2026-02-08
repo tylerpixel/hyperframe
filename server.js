@@ -3,7 +3,9 @@ const { createServer } = require('http');
 const { WebSocketServer } = require('ws');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 const { generateCode, isValidCode } = require('./words');
+const { generateOGImage } = require('./og');
 
 // Get local network IP
 function getLocalIP() {
@@ -23,9 +25,67 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
 const PORT = process.env.PORT || 3000;
+const TURN_KEY_ID = process.env.TURN_KEY_ID;
+const TURN_KEY_API_TOKEN = process.env.TURN_KEY_API_TOKEN;
 
 // Room storage: { roomCode: { sharer: ws, viewer: ws } }
 const rooms = new Map();
+
+// Cached Cloudflare TURN credentials
+let cachedIceServers = null;
+let cacheExpiry = 0;
+
+async function getIceServers() {
+  const now = Date.now();
+  if (cachedIceServers && now < cacheExpiry) {
+    return cachedIceServers;
+  }
+
+  if (!TURN_KEY_ID || !TURN_KEY_API_TOKEN) {
+    console.warn('TURN_KEY_ID or TURN_KEY_API_TOKEN not set, using STUN only');
+    return { iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }] };
+  }
+
+  try {
+    const ttl = 86400;
+    const res = await fetch(
+      `https://rtc.live.cloudflare.com/v1/turn/keys/${TURN_KEY_ID}/credentials/generate-ice-servers`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${TURN_KEY_API_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ttl })
+      }
+    );
+
+    if (!res.ok) {
+      throw new Error(`Cloudflare TURN API returned ${res.status}`);
+    }
+
+    const data = await res.json();
+    cachedIceServers = data;
+    // Cache for 23 hours (credentials valid for 24)
+    cacheExpiry = now + (23 * 60 * 60 * 1000);
+    console.log('Fetched fresh Cloudflare TURN credentials');
+    return data;
+  } catch (err) {
+    console.error('Failed to fetch TURN credentials:', err.message);
+    // Fallback to STUN only
+    return { iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }] };
+  }
+}
+
+// Read viewer.html once at startup as a template for dynamic OG tags
+const viewerTemplate = fs.readFileSync(path.join(__dirname, 'public', 'viewer.html'), 'utf8');
+
+function serveViewerWithOG(res, code) {
+  const ogUrl = `https://hyperframe.computer/og/${code}.png`;
+  const html = viewerTemplate
+    .replace(/https:\/\/hyperframe\.computer\/images\/graph\.png/g, ogUrl);
+  res.type('html').send(html);
+}
 
 // Subdomain detection middleware
 app.use((req, res, next) => {
@@ -46,11 +106,28 @@ app.use((req, res, next) => {
   next();
 });
 
+// Route: Dynamic OG image per hyperframe code
+app.get('/og/:code.png', async (req, res) => {
+  const code = req.params.code;
+  if (!isValidCode(code)) {
+    return res.status(404).send('Invalid code');
+  }
+  try {
+    const buffer = await generateOGImage(code);
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(buffer);
+  } catch (err) {
+    console.error('OG image generation error:', err);
+    res.status(500).send('Image generation failed');
+  }
+});
+
 // Route: Viewer page via path (for LAN access: /view/word-word)
 app.get('/view/:code', (req, res) => {
   const code = req.params.code;
   if (isValidCode(code)) {
-    res.sendFile(path.join(__dirname, 'public', 'viewer.html'));
+    serveViewerWithOG(res, code);
   } else {
     res.status(404).send('Invalid room code');
   }
@@ -61,7 +138,7 @@ app.get('/', (req, res) => {
   console.log('[DEBUG] GET / - req.roomCode:', req.roomCode);
   if (req.roomCode) {
     console.log('[DEBUG] Serving viewer.html for room:', req.roomCode);
-    res.sendFile(path.join(__dirname, 'public', 'viewer.html'));
+    serveViewerWithOG(res, req.roomCode);
   } else {
     console.log('[DEBUG] Serving index.html (sharer page)');
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -84,6 +161,17 @@ app.get('/api/new-room', (req, res) => {
   }
 
   res.json({ code, lanIP: getLocalIP(), port: PORT });
+});
+
+// API: Get ICE servers with TURN credentials
+app.get('/api/ice-servers', async (req, res) => {
+  try {
+    const iceConfig = await getIceServers();
+    res.json(iceConfig);
+  } catch (err) {
+    console.error('ICE servers error:', err);
+    res.status(500).json({ error: 'Failed to get ICE servers' });
+  }
 });
 
 // No caching

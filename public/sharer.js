@@ -13,36 +13,26 @@ let localStream = null;
 let viewerPresent = false;
 let shareUrl = '';
 
-// ICE servers for NAT traversal
-const iceServers = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    // TURN servers for relay when direct P2P fails
-    {
-      urls: 'turn:openrelay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    }
-  ],
-  iceCandidatePoolSize: 10
-};
+// ICE servers fetched from server (Cloudflare TURN)
+let iceServers = null;
+
+async function fetchIceServers() {
+  try {
+    const res = await fetch('/api/ice-servers');
+    const data = await res.json();
+    iceServers = data;
+    console.log('ICE servers loaded:', iceServers.iceServers.length, 'servers');
+  } catch (err) {
+    console.error('Failed to fetch ICE servers, using STUN fallback:', err);
+    iceServers = { iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }] };
+  }
+}
 
 // Initialize: Get a hyperframe code
 async function init() {
   console.log('Sharer page initializing...');
   try {
+    await fetchIceServers();
     console.log('Fetching hyperframe code...');
     const res = await fetch('/api/new-room');
 
